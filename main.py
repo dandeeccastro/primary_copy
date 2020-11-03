@@ -23,18 +23,20 @@ def main(nodeID):
     while True:
         inputs = [sys.stdin]
         r,w,x = select.select(inputs,[],[])
+
         for command in r:
             if command == sys.stdin:
                 fullMessage = input()
                 message = fullMessage.split()
-                valid = validateCommand(fullMessage)
-                if message[0] == 'read' and valid:
+                commandIsValid = validateCommand(fullMessage)
+
+                if message[0] == 'read' and commandIsValid:
                     print("Ok {0}".format(message[0]))
-                elif message[0] == 'history' and valid:
+                elif message[0] == 'history' and commandIsValid:
                     print("Ok {0}".format(message[0]))
-                elif message[0] == 'write' and valid:
+                elif message[0] == 'write' and commandIsValid:
                     print("Ok {0}".format(message[0]))
-                elif message[0] == 'close' and valid:
+                elif message[0] == 'close' and commandIsValid:
                     print("Ok {0}".format(message[0]))
                     sys.exit()
 

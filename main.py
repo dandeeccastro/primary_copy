@@ -36,10 +36,11 @@ def validateCommand(fullCommand):
     match = regex.match(fullCommand)
     return bool(match)
 
-def main(nodeID):
+def main(nodeID,items):
     X = 0
     history = []
-    hasWritePermission = True
+    hasWritePermission = len(items) == 0
+    del items
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.bind( ("localhost", 4200 + int(nodeID)) )
     listener.listen(1)
@@ -70,6 +71,14 @@ def main(nodeID):
                     if hasWritePermission:
                         X = int(message[1])
                         history.append((nodeID,int(message[1])))
+                        for i in range(4201,4205):
+                            if i != 4200 + int(nodeID):
+                                sock = socket.socket()
+                                if sock.connect_ex(("localhost",i)) == 0:
+                                    sock.send('WRITE {0} {1}'.format( message[1],stringifyHistory(history) ).encode('utf-8'))
+
+                    else:
+                        print("Puts pega o chapéu primeiro man")
                     print("[Node {0}] Escreveu {1} em X".format(nodeID,int(message[1])))
                 elif message[0] == 'close' and commandIsValid:
                     print("Ok {0}".format(message[0]))
@@ -101,4 +110,4 @@ if __name__ == '__main__':
     nodeID = input('Insira o ID desse nó (1-4): ')
     while nodeID in occupied:
         nodeID = input('ID já existe, escolha outro ID (1-4): ')
-    main(nodeID)
+    main(nodeID,occupied)

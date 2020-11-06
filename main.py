@@ -4,7 +4,22 @@ import select
 import re
 
 def formatHistoryData(historyData):
-    print(historyData)
+    if historyData:
+        history = list(filter(lambda x: len(x),historyData.split(';')))
+        result = []
+        for entry in history:
+            updatedEntry = entry.split(',')
+            result.append( (updatedEntry[0], updatedEntry[1]) )
+        return result
+    else:
+        return []
+
+def stringifyHistory(history):
+    result = ""
+    if len(history):
+        for entry in history:
+            result += "{0},{1};".format(entry[0],entry[1])
+    return result
 
 def validateCommand(fullCommand):
     command = fullCommand.split()
@@ -49,6 +64,8 @@ def main(nodeID):
                     else:
                         response += " X não foi alterado ainda"
                     print(response)
+                    test = stringifyHistory(history)
+                    print(test,formatHistoryData(test))
                 elif message[0] == 'write' and commandIsValid:
                     if hasWritePermission:
                         X = int(message[1])
@@ -63,10 +80,25 @@ def main(nodeID):
                 fullMsg = new_sock.recv(1024).decode('utf-8')
                 msg = fullMsg.split()
 
+                if not msg:
+                    continue
+
                 if msg[0] == 'WRITE':
                     X = int(msg[1])
                     historyUpdate = formatHistoryData(msg[2])
+                    for newEntry in historyUpdate:
+                        history.append(newEntry)
+
 
 if __name__ == '__main__':
-    nodeID = input('Insira o ID desse nó: ')
+    occupied = []
+    for port in range (4201,4205):
+        test_sock = socket.socket()
+        if test_sock.connect_ex(("localhost",port)) == 0:
+            occupied.append(port - 4200)
+        test_sock.close()
+    print(occupied)
+    nodeID = input('Insira o ID desse nó (1-4): ')
+    while nodeID in occupied:
+        nodeID = input('ID já existe, escolha outro ID (1-4): ')
     main(nodeID)

@@ -70,12 +70,13 @@ def main(nodeID,items):
                 elif message[0] == 'write' and commandIsValid:
                     if hasWritePermission:
                         X = int(message[1])
-                        history.append((nodeID,int(message[1])))
+                        update = (nodeID,int(message[1]))
+                        history.append(update)
                         for i in range(4201,4205):
                             if i != 4200 + int(nodeID):
                                 sock = socket.socket()
                                 if sock.connect_ex(("localhost",i)) == 0:
-                                    sock.send('WRITE {0} {1}'.format( message[1],stringifyHistory(history) ).encode('utf-8'))
+                                    sock.sendall('WRITE {0} {1}'.format( message[1], stringifyHistory(history) ).encode('utf-8'))
 
                     else:
                         print("Puts pega o chapéu primeiro man")
@@ -94,7 +95,11 @@ def main(nodeID,items):
 
                 if msg[0] == 'WRITE':
                     X = int(msg[1])
-                    historyUpdate = formatHistoryData(msg[2])
+                    stringifiedHistory = stringifyHistory( history )
+                    print("[Node {0}] {1}".format( nodeID, stringifiedHistory in msg[2] ) )
+                    cuttingIndex = msg[2].find(stringifiedHistory)
+                    appendable = msg[2][cuttingIndex + len(stringifiedHistory):-1]
+                    historyUpdate = formatHistoryData(appendable)
                     for newEntry in historyUpdate:
                         history.append(newEntry)
 

@@ -77,9 +77,25 @@ def main(nodeID,items):
                                 sock = socket.socket()
                                 if sock.connect_ex(("localhost",i)) == 0:
                                     sock.sendall('WRITE {0} {1}'.format( message[1], stringifyHistory(history) ).encode('utf-8'))
-
                     else:
-                        print("Puts pega o chapéu primeiro man")
+                        responses = [] 
+                        for i in range(4201,4205):
+                            if i != 4200 + int(nodeID):
+                                sock = socket.socket()
+                                if sock.connect_ex(("localhost",i)) == 0:
+                                    sock.sendall('TRANSFER'.encode('utf-8'))
+                                    responses.append(sock.recv(1024).decode('utf-8'))
+                        for response in responses:
+                            if response == "OK":
+                                hasWritePermission = True
+                                X = int(message[1])
+                                update = (nodeID,int(message[1]))
+                                history.append(update)
+                                for i in range(4201,4205):
+                                    if i != 4200 + int(nodeID):
+                                        sock = socket.socket()
+                                        if sock.connect_ex(("localhost",i)) == 0:
+                                            sock.sendall('WRITE {0} {1}'.format( message[1], stringifyHistory(history) ).encode('utf-8'))
                     print("[Node {0}] Escreveu {1} em X".format(nodeID,int(message[1])))
                 elif message[0] == 'close' and commandIsValid:
                     print("Ok {0}".format(message[0]))
@@ -103,6 +119,13 @@ def main(nodeID,items):
                     for newEntry in historyUpdate:
                         history.append(newEntry)
 
+                elif msg[0] == 'TRANSFER':
+                    if hasWritePermission:
+                        hasWritePermission = False
+                        new_sock.sendall(b"OK")
+                    else:
+                        new_sock.sendall(b"INVALID")
+
 
 if __name__ == '__main__':
     occupied = []
@@ -112,7 +135,7 @@ if __name__ == '__main__':
             occupied.append(port - 4200)
         test_sock.close()
     print(occupied)
-    nodeID = input('Insira o ID desse nó (1-4): ')
+    nodeID = int(input('Insira o ID desse nó (1-4): '))
     while nodeID in occupied:
-        nodeID = input('ID já existe, escolha outro ID (1-4): ')
+        nodeID = int(input('Insira o ID desse nó (1-4): '))
     main(nodeID,occupied)

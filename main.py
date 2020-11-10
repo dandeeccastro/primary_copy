@@ -37,26 +37,34 @@ def validateCommand(fullCommand):
     return bool(match)
 
 def main(nodeID,items):
+    # Inicializando X, histórico e permissão de escrita (chapéu)
     X = 0
     history = []
-    hasWritePermission = len(items) == 0
+    hasWritePermission = len(items) == 0 # se é o primeiro, items é vazio e ele tem permissão de arquivo
     del items
+
+    # Prepara o soquete que espera conexões 
     listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listener.bind( ("localhost", 4200 + int(nodeID)) )
     listener.listen(1)
 
     while True:
+        # Constantemente atualiza os inputs para ficar ouvindo 
         inputs = [sys.stdin, listener]
         r,w,x = select.select(inputs,[],[])
 
         for command in r:
+
             if command == sys.stdin:
                 fullMessage = input()
                 message = fullMessage.split()
                 commandIsValid = validateCommand(fullMessage)
 
+                # Leitura imprime o valor local de X na tela
                 if message[0] == 'read' and commandIsValid:
                     print("[Node {0}] X = {1}".format(nodeID,X))
+
+                # History imprime as mudanças registradas localmente 
                 elif message[0] == 'history' and commandIsValid:
                     response = "[Node {0}]\n".format(nodeID)
                     if history:
@@ -65,10 +73,23 @@ def main(nodeID,items):
                     else:
                         response += " X não foi alterado ainda"
                     print(response)
-                    test = stringifyHistory(history)
-                    print(test,formatHistoryData(test))
+
+                # Write funciona diferentemente se ele tem o chapéu ou não 
                 elif message[0] == 'write' and commandIsValid:
-                    if hasWritePermission:
+                    
+                    responses = [] 
+                    # Se ele não tem permissão, ele pede permissão e anota as respostas que recebe
+                    if not hasWritePermission:
+                        for i in range(4201,4205):
+                            if i != 4200 + int(nodeID):
+                                sock = socket.socket()
+                                if sock.connect_ex(("localhost",i)) == 0:
+                                    sock.sendall('TRANSFER'.encode('utf-8'))
+                                    responses.append(sock.recv(1024).decode('utf-8'))
+
+                    # Se uma das respostas for OK (que só o dono do chapéu permite), ele procede a mudar o valor e atualizar suas mudanças
+                    if "OK" in responses or not len(responses):
+                        hasWritePermission = True
                         X = int(message[1])
                         update = (nodeID,int(message[1]))
                         history.append(update)
@@ -77,30 +98,12 @@ def main(nodeID,items):
                                 sock = socket.socket()
                                 if sock.connect_ex(("localhost",i)) == 0:
                                     sock.sendall('WRITE {0} {1}'.format( message[1], stringifyHistory(history) ).encode('utf-8'))
-                    else:
-                        responses = [] 
-                        for i in range(4201,4205):
-                            if i != 4200 + int(nodeID):
-                                sock = socket.socket()
-                                if sock.connect_ex(("localhost",i)) == 0:
-                                    sock.sendall('TRANSFER'.encode('utf-8'))
-                                    responses.append(sock.recv(1024).decode('utf-8'))
-                        for response in responses:
-                            if response == "OK":
-                                hasWritePermission = True
-                                X = int(message[1])
-                                update = (nodeID,int(message[1]))
-                                history.append(update)
-                                for i in range(4201,4205):
-                                    if i != 4200 + int(nodeID):
-                                        sock = socket.socket()
-                                        if sock.connect_ex(("localhost",i)) == 0:
-                                            sock.sendall('WRITE {0} {1}'.format( message[1], stringifyHistory(history) ).encode('utf-8'))
-                    print("[Node {0}] Escreveu {1} em X".format(nodeID,int(message[1])))
+
+                # Close termina a execução do nó
                 elif message[0] == 'close' and commandIsValid:
-                    print("Ok {0}".format(message[0]))
                     sys.exit()
 
+            # Caso o nó receba uma mensagem 
             elif command == listener:
                 new_sock, addr = listener.accept()
                 fullMsg = new_sock.recv(1024).decode('utf-8')
@@ -109,7 +112,11 @@ def main(nodeID,items):
                 if not msg:
                     continue
 
+                # Se o protocolo de escrita é recebido 
                 if msg[0] == 'WRITE':
+
+                    # O nó atualiza seu X e atualiza a história fazendo uma análise de que parte da história é repetida,
+                    # para poder adicionar só o que é novo
                     X = int(msg[1])
                     stringifiedHistory = stringifyHistory( history )
                     print("[Node {0}] {1}".format( nodeID, stringifiedHistory in msg[2] ) )
@@ -119,6 +126,8 @@ def main(nodeID,items):
                     for newEntry in historyUpdate:
                         history.append(newEntry)
 
+                # Se o protocolo de transferência de chapéu é chamado, ele manda INVALID se não for o dono
+                # mas se for o dono, ele tira seu chapéu e dá OK para o nó botar o dele
                 elif msg[0] == 'TRANSFER':
                     if hasWritePermission:
                         hasWritePermission = False

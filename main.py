@@ -33,6 +33,8 @@ def validateCommand(fullCommand):
         regex = re.compile('^close$')
     elif command[0] == 'permission':
         regex = re.compile('^permission$')
+    elif command[0] == 'help':
+        regex = re.compile('^help$')
     else:
         return False
     match = regex.match(fullCommand)
@@ -45,7 +47,6 @@ def main(nodeID,items):
     hasWritePermission = len(items) == 0 # se é o primeiro, items é vazio e ele tem permissão de arquivo
 
     if len(items) > 0:
-        print("[Node {}] Update protocol started".format(nodeID))
         for i in range(4201,4205):
             if i != 4200 + int(nodeID):
                 sock = socket.socket()
@@ -132,6 +133,21 @@ def main(nodeID,items):
                 elif message[0] == 'permission' and commandIsValid:
                     print("[Node {}] Permissão de escrita: {}".format(nodeID,hasWritePermission))
 
+                elif message[0] == 'help': 
+                    if len(message) > 1:
+                        if message[1] == 'read':
+                            print("read: Lê o valor de X armazenado no nó em questão")
+                        elif message[1] == 'write':
+                            print("write <valor>: Escreve o valor em X (precisa ser um número inteiro)")
+                        elif message[1] == 'history':
+                            print("history: Imprime na tela o histórico de mudanças no valor de X, assim como qual nó mudou ele")
+                        elif message[1] == 'close':
+                            print("close: Fecha o sistema, atualizando os outros nós caso ele seja o dono da permissão de escrita ")
+                        elif message[1] == 'permission':
+                            print("permission: Imprime na tela se você tem permissão de escrita no momento. Comando para motivos de debugging")
+                    else:
+                        print("Comandos disponíveis: read, write, history, permission, close")
+
             # Caso o nó receba uma mensagem 
             elif command == listener:
                 new_sock, addr = listener.accept()
@@ -178,7 +194,6 @@ if __name__ == '__main__':
         if test_sock.connect_ex(("localhost",port)) == 0:
             occupied.append(port - 4200)
         test_sock.close()
-    print(occupied)
     nodeID = int(input('Insira o ID desse nó (1-4): '))
     while nodeID in occupied:
         nodeID = int(input('Insira o ID desse nó (1-4): '))

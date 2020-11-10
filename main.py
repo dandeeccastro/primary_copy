@@ -31,6 +31,8 @@ def validateCommand(fullCommand):
         regex = re.compile('write [0-9]+')
     elif command[0] == 'close':
         regex = re.compile('^close$')
+    elif command[0] == 'permission':
+        regex = re.compile('^permission$')
     else:
         return False
     match = regex.match(fullCommand)
@@ -41,6 +43,20 @@ def main(nodeID,items):
     X = 0
     history = []
     hasWritePermission = len(items) == 0 # se é o primeiro, items é vazio e ele tem permissão de arquivo
+
+    if len(items) > 0:
+        print("[Node {}] Update protocol started".format(nodeID))
+        for i in range(4201,4205):
+            if i != 4200 + int(nodeID):
+                sock = socket.socket()
+                if sock.connect_ex(("localhost",i)) == 0:
+                    sock.sendall(b"UPDATE")
+                    data = sock.recv(1024).decode('utf-8')
+        data = data.split()
+        if len(data) > 1:
+            X = int(data[0])
+            history = formatHistoryData(data[1])
+    
     del items
 
     # Prepara o soquete que espera conexões 
@@ -99,9 +115,22 @@ def main(nodeID,items):
                                 if sock.connect_ex(("localhost",i)) == 0:
                                     sock.sendall('WRITE {0} {1}'.format( message[1], stringifyHistory(history) ).encode('utf-8'))
 
-                # Close termina a execução do nó
+                # Close termina a execução do nó, e se o nó tem permissão de escrita, ele elege um novo por meio
+                # do nó com maior ID na rede
                 elif message[0] == 'close' and commandIsValid:
+                    if hasWritePermission:
+                        i = 4204
+                        while i != 4200:
+                            if i != 4200 + int(nodeID):
+                                sock = socket.socket()
+                                if sock.connect_ex(("localhost", i)) == 0:
+                                    sock.sendall(b'ELECTED') 
+                                    break
+                            i -= 1
                     sys.exit()
+
+                elif message[0] == 'permission' and commandIsValid:
+                    print("[Node {}] Permissão de escrita: {}".format(nodeID,hasWritePermission))
 
             # Caso o nó receba uma mensagem 
             elif command == listener:
@@ -135,6 +164,12 @@ def main(nodeID,items):
                     else:
                         new_sock.sendall(b"INVALID")
 
+                elif msg[0] == 'ELECTED':
+                    hasWritePermission = True
+                    print("[Node {}] Eleito para ser novo dono do chapéu, antigo dono desconectou".format(nodeID))
+
+                elif msg[0] == 'UPDATE':
+                    new_sock.sendall("{} {}".format(X,stringifyHistory(history)).encode('utf-8'))
 
 if __name__ == '__main__':
     occupied = []
